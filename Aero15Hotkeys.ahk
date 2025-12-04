@@ -1,54 +1,39 @@
-; ===========================
-;   AERO 15 自訂快捷鍵工具
-;   亮度 / 音量 快捷鍵
-; ===========================
+#Requires AutoHotkey v2.0
 
-#NoEnv
-SendMode Input
-SetWorkingDir %A_ScriptDir%
+; ------------ 基本設定 ------------
+#SingleInstance Force
+SetTitleMatchMode "RegEx"
+Persistent
 
-; --- 螢幕亮度調整 ---
-; 亮度降低：Ctrl + Alt + F3
-^!F5::
-    AdjustBrightness(-10)
-return
-
-; 亮度增加：Ctrl + Alt + F4
-^!F6::
-    AdjustBrightness(10)
-return
-
-; --- 音量控制 ---
-; 降音量：Ctrl + Alt + F7
-^!F7::Send {Volume_Down}
-
-; 升音量：Ctrl + Alt + F8
-^!F8::Send {Volume_Up}
-
-; 靜音：Ctrl + Alt + F9
-^!F9::Send {Volume_Mute}
-
-; --- 亮度調整 function ---
-AdjustBrightness(amount) {
+; ------------ 功能：調整螢幕亮度 ------------
+changeBrightness(amount) {
     try {
-        WMI := ComObjGet("winmgmts:\\.\root\wmi")
-        cols := WMI.ExecQuery("SELECT * FROM WmiMonitorBrightness")
-        For monitor in cols {
-            curBright := monitor.CurrentBrightness
-        }
+        ; 使用 WMI 控制亮度
+        wmi := ComObjGet("winmgmts:\\.\root\WMI")
+        methods := wmi.ExecQuery("Select * from WmiMonitorBrightnessMethods").ItemIndex(0)
+        current := wmi.ExecQuery("Select * from WmiMonitorBrightness").ItemIndex(0).CurrentBrightness
+        newValue := current + amount
 
-        newBright := curBright + amount
-        if (newBright > 100)
-            newBright := 100
-        if (newBright < 0)
-            newBright := 0
+        if (newValue < 0)
+            newValue := 0
+        if (newValue > 100)
+            newValue := 100
 
-        wmi2 := ComObjGet("winmgmts:\\.\root\wmi")
-        methods := wmi2.ExecQuery("SELECT * FROM WmiMonitorBrightnessMethods")
-        For method in methods {
-            method.WmiSetBrightness(1, newBright)
-        }
-    } catch e {
-        MsgBox, 16, 錯誤, 無法更改亮度：%e%
+        methods.WmiSetBrightness(1, newValue)
+    } catch {
+        MsgBox "調整亮度功能錯誤"
     }
 }
+
+; ------------ 熱鍵設定（請依你的機型功能鍵修改） ------------
+
+; Fn + F3 降低亮度
+F3::(() => changeBrightness(-10))()
+
+; Fn + F4 增加亮度
+F4::(() => changeBrightness(10))()
+
+; ------------ 音量調整 ------------
+F8::SoundSetVolume("-2")   ; 降低音量
+F9::SoundSetVolume("+2")    ; 增加音量
+F7::Volume_Mute             ; 靜音
