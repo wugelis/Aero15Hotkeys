@@ -16,23 +16,25 @@ showOSD(text) {
     if !osdWin {
         osdWin := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20")
         osdWin.BackColor := "000000"  ; 黑色背景
-        osdText := osdWin.AddText("Center w300 h50 cFFFFFF", "")
-        osdWin.SetFont("s20 bold")
+        osdWin.SetFont("s20 bold", "Microsoft JhengHei UI")
+        osdText := osdWin.AddText("Center w300 cFFFFFF", text)
         osdHwnd := osdWin.Hwnd
+    } else {
+        osdText.Value := text
     }
 
-    osdText.Value := text
-    osdWin.Show("AutoSize Center")
+    osdWin.Show("AutoSize Center NoActivate")
 
     ; 重設透明度
     WinSetTransparent(255, osdHwnd)
 
     ; 清除舊的 Timer
     if osdTimer
-        osdTimer.Stop()
+        SetTimer(osdTimer, 0)
 
     ; 1.2 秒後開始淡出
-    osdTimer := SetTimer(() => fadeOutOSD(), -1200)
+    osdTimer := fadeOutOSD
+    SetTimer(osdTimer, -1200)
 }
 
 ; ================================================================
@@ -41,12 +43,22 @@ showOSD(text) {
 fadeOutOSD() {
     global osdWin, osdHwnd
 
-    Loop 12 {
-        current := WinGetTransparent(osdHwnd)
-        WinSetTransparent(current - 20, osdHwnd)
-        Sleep 20
+    if !osdWin
+        return
+
+    try {
+        Loop 12 {
+            current := WinGetTransparent(osdHwnd)
+            if (current = "")
+                current := 255
+            newTrans := current - 20
+            if (newTrans < 0)
+                newTrans := 0
+            WinSetTransparent(newTrans, osdHwnd)
+            Sleep 20
+        }
+        osdWin.Hide()
     }
-    osdWin.Hide()
 }
 
 ; ================================================================
@@ -59,8 +71,10 @@ changeBrightness(amount) {
         current := wmi.ExecQuery("Select * from WmiMonitorBrightness").ItemIndex(0).CurrentBrightness
 
         newValue := current + amount
-        if (newValue < 0) newValue := 0
-        if (newValue > 100) newValue := 100
+        if (newValue < 0)
+            newValue := 0
+        if (newValue > 100)
+            newValue := 100
 
         methods.WmiSetBrightness(1, newValue)
 
@@ -98,7 +112,7 @@ toggleMute() {
 }
 
 ; ================================================================
-;  熱鍵設定：依你的 AERO 15 修改
+;  熱鍵設定（依你機型調整）
 ; ================================================================
 ; Fn + F3 降低亮度
 F3::(() => changeBrightness(-10))()
@@ -107,6 +121,6 @@ F3::(() => changeBrightness(-10))()
 F4::(() => changeBrightness(10))()
 
 ; ------------ 音量調整 ------------
-F8::SoundSetVolume("-2")   ; 降低音量
-F9::SoundSetVolume("+2")    ; 增加音量
-F7::Volume_Mute             ; 靜音
+F8::changeVolume(-2)    ; 降低音量
+F9::changeVolume(2)     ; 增加音量
+F7::toggleMute()        ; 靜音
